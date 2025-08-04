@@ -1,0 +1,109 @@
+// Companies page functionality
+let allCompanies = [];
+
+async function loadCompaniesData() {
+    try {
+        const response = await fetch(buildApiUrl(CONFIG.SHEETS.COMPANIES));
+        const data = await response.json();
+        
+        // Skip header row and store companies
+        allCompanies = data.values.slice(1).map((row, index) => ({
+            id: index,
+            name: row[0] || '',
+            type: row[1] || '',
+            primaryContact: row[2] || '',
+            status: row[3] || '',
+            projects: row[4] || '',
+            totalPipeline: parseFloat(row[5]) || 0,
+            totalRevenue: parseFloat(row[6]) || 0,
+            notes: row[7] || ''
+        }));
+        
+        // Update statistics
+        updateCompanyStats();
+        
+        // Display companies
+        displayCompanies();
+        
+    } catch (error) {
+        console.error('Error loading companies:', error);
+        showError('Failed to load companies. Please check your configuration.');
+    }
+}
+
+function updateCompanyStats() {
+    // Total companies
+    document.getElementById('total-companies').textContent = allCompanies.length;
+    
+    // Active companies
+    const activeCompanies = allCompanies.filter(company => 
+        company.status?.toLowerCase() === 'active' || 
+        company.status?.toLowerCase() === 'ativo'
+    ).length;
+    document.getElementById('active-companies').textContent = activeCompanies;
+    
+    // Total pipeline value
+    const totalPipeline = allCompanies.reduce((sum, company) => sum + company.totalPipeline, 0);
+    document.getElementById('total-pipeline').textContent = 'R$' + formatNumber(totalPipeline);
+    
+    // Total revenue
+    const totalRevenue = allCompanies.reduce((sum, company) => sum + company.totalRevenue, 0);
+    document.getElementById('total-revenue').textContent = 'R$' + formatNumber(totalRevenue);
+}
+
+function displayCompanies() {
+    const tbody = document.getElementById('companies-table');
+    
+    if (allCompanies.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No companies found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = allCompanies.map(company => `
+        <tr>
+            <td>
+                <strong>${company.name}</strong>
+                ${company.notes ? `<br><small class="text-muted">${company.notes}</small>` : ''}
+            </td>
+            <td>${company.type}</td>
+            <td>${company.primaryContact}</td>
+            <td><span class="badge bg-${getStatusColor(company.status)}">${company.status}</span></td>
+            <td>${company.projects}</td>
+            <td>${company.totalPipeline > 0 ? 'R$' + formatNumber(company.totalPipeline) : '-'}</td>
+            <td class="text-success">${company.totalRevenue > 0 ? 'R$' + formatNumber(company.totalRevenue) : '-'}</td>
+        </tr>
+    `).join('');
+}
+
+// Helper functions
+function getStatusColor(status) {
+    switch (status?.toLowerCase()) {
+        case 'active':
+        case 'ativo':
+            return 'success';
+        case 'prospect':
+        case 'prospecto':
+            return 'info';
+        case 'inactive':
+        case 'inativo':
+            return 'secondary';
+        case 'on hold':
+        case 'em espera':
+            return 'warning';
+        default:
+            return 'primary';
+    }
+}
+
+function formatNumber(num) {
+    if (!num) return '0';
+    return Number(num).toLocaleString('pt-BR');
+}
+
+function showError(message) {
+    const tbody = document.getElementById('companies-table');
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center"><div class="alert alert-danger">${message}</div></td></tr>`;
+}
+
+// Load data when page loads
+document.addEventListener('DOMContentLoaded', loadCompaniesData);
