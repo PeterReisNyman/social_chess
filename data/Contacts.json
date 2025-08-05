@@ -1,0 +1,6 @@
+{
+  "values": [
+    ["Name","Organization","Role","Email","Phone","Type","Projects","Last Contact","Next Action","Relationship Strength","Notes","Tags"],
+    ["Jane Smith","Acme Corp","CTO","jane@acme.com","+1234567890","Client","Project Alpha","2025-07-20","Follow up call","Strong","Key decision maker","tech,enterprise"]
+  ]
+}
