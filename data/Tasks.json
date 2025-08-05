@@ -1,0 +1,6 @@
+{
+  "values": [
+    ["Task Name","Company","Project","Stakeholder","Due Date","Priority","Status","Type","Notes","Created Date","Last Modified"],
+    ["Sample Task","Acme Corp","Project Alpha","John Doe","2025-08-04","High","Not Started","Call","Initial task","2025-08-01","2025-08-01"]
+  ]
+}
