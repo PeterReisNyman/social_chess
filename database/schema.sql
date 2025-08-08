@@ -1,5 +1,4 @@
 -- Social Chess Supabase schema
--- Copy and run in Supabase SQL editor. Adjust policies to your security needs.
 
 -- Extensions
 create extension if not exists "pgcrypto";

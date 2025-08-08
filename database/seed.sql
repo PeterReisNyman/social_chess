@@ -1,6 +1,4 @@
 -- Social Chess seed data for Supabase
--- Usage: paste this into Supabase SQL editor after running database/schema.sql
--- All IDs default to UUIDs, created_at defaults to now().
 
 -- Companies (Investors, Startups, and a Client)
 insert into public.companies (name, type, primary_contact, status, projects, total_pipeline, total_revenue, notes) values
