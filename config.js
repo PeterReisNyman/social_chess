@@ -1,6 +1,5 @@
 // Configuration for Social Chess frontend
 
-// Build-time default for local API endpoint
 const APPS_SCRIPT_URL = '/api';
 
 const CONFIG = {
@@ -16,10 +15,9 @@ const CONFIG = {
         DASHBOARD: 'Dashboard'
     },
     APPS_SCRIPT_URL: APPS_SCRIPT_URL,
-    // These can be injected by the server from environment via window.__ENV__ in index.html (see server.js)
-    // If left empty here and __ENV__ exists, they will be set from there.
-    SUPABASE_URL: (window.__ENV__ && window.__ENV__.SUPABASE_URL) || '',
-    SUPABASE_ANON_KEY: (window.__ENV__ && window.__ENV__.SUPABASE_ANON_KEY) || ''
+    // Set these to enable Supabase. If left empty, app falls back to local API.
+    SUPABASE_URL: '',
+    SUPABASE_ANON_KEY: ''
 };
 
 function buildApiUrl(sheetName, params = {}) {
