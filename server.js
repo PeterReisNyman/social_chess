@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -94,6 +95,16 @@ app.get('/api', (req, res) => {
   }
   const data = readSheet(sheetName);
   res.json(data);
+});
+
+// Inject selected environment variables into client as window.__ENV__
+app.get('/env.js', (req, res) => {
+  const env = {
+    SUPABASE_URL: process.env.SUPABASE_URL || '',
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || ''
+  };
+  res.setHeader('Content-Type', 'application/javascript');
+  res.send(`window.__ENV__ = ${JSON.stringify(env)};`);
 });
 
 app.post('/api', (req, res) => {
