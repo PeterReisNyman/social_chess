@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
         setupFormHandlers();
         populateFormDropdowns(); // This might need to be called after specific modals are shown or data is ready
         setupModalOpeners(); // For the new dashboard dropdown
+        setupCsvImporters();
     });
 });
 
@@ -125,35 +126,35 @@ function setupFormHandlers() {
 }
 
 async function populateFormDropdowns() {
-    // This function populates dropdowns like "Company" in the "Add Task" form.
-    // It needs to fetch data (e.g., list of companies) from your Google Sheets via Apps Script.
-    if (!window.CONFIG || !window.CONFIG.APPS_SCRIPT_URL) {
-        console.error("CONFIG or APPS_SCRIPT_URL not available for populating dropdowns.");
-        return;
-    }
-
+    // Populate dropdowns from Supabase if configured, otherwise from local API
+    let allData = {};
     try {
-        // Fetch all necessary data using the 'getAllData' action
-        const response = await fetch(`${window.CONFIG.APPS_SCRIPT_URL}?action=getAllData`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const result = await response.json();
-
-        if (!result.success || !result.data) {
-            console.error("Failed to fetch data for dropdowns:", result.message || "Unknown error");
-            return;
+        if (window.CONFIG && window.CONFIG.SUPABASE_URL && window.CONFIG.SUPABASE_ANON_KEY && window.initSupabase && window.initSupabase()) {
+            const [companies, projects, contacts] = await Promise.all([
+                window.sbSelect('companies'),
+                window.sbSelect('projects'),
+                window.sbSelect('contacts')
+            ]);
+            allData = { companies, projects, contacts };
+        } else {
+            if (!window.CONFIG || !window.CONFIG.APPS_SCRIPT_URL) throw new Error('No data source configured');
+            const response = await fetch(`${window.CONFIG.APPS_SCRIPT_URL}?action=getAllData`);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const result = await response.json();
+            if (!result.success || !result.data) throw new Error(result.message || 'Unknown error');
+            allData = result.data;
         }
 
-        const allData = result.data;
-
         // Populate company dropdowns (e.g., in Add Task, Add Project forms)
-        const companySelects = document.querySelectorAll('select[name="company"], select[name="organization"]'); // 'organization' for contact form might be free text or dropdown
-        const companies = allData.companies || []; // Expecting an array of company objects
+        const companySelects = document.querySelectorAll('select[name="company"], select[name="organization"]');
+        const companies = allData.companies || [];
         companySelects.forEach(select => {
             // Clear existing options except the first placeholder
             while (select.options.length > 1) select.remove(1);
             companies.forEach(company => {
-                if (company.Name) { // Assuming company object has a 'Name' property from sheet header
-                    const option = new Option(company.Name, company.Name);
+                const name = company.Name || company.name;
+                if (name) {
+                    const option = new Option(name, name);
                     select.add(option);
                 }
             });
@@ -161,12 +162,13 @@ async function populateFormDropdowns() {
 
         // Populate project dropdowns (e.g., in Add Task form)
         const projectSelects = document.querySelectorAll('select[name="project"]');
-        const projects = allData.projects || []; // Expecting an array of project objects
+        const projects = allData.projects || [];
         projectSelects.forEach(select => {
             while (select.options.length > 1) select.remove(1);
             projects.forEach(project => {
-                if (project.Name) { // Assuming project object has a 'Name' property
-                    const option = new Option(project.Name, project.Name);
+                const name = project.Name || project.name;
+                if (name) {
+                    const option = new Option(name, name);
                     select.add(option);
                 }
             });
@@ -174,12 +176,13 @@ async function populateFormDropdowns() {
 
         // Populate contact dropdowns (e.g., for 'Primary Contact' in Company form, 'Stakeholder' in Task form)
         const contactSelects = document.querySelectorAll('select[name="stakeholder"], select[name="primaryContact"]');
-        const contacts = allData.contacts || []; // Expecting an array of contact objects
+        const contacts = allData.contacts || [];
         contactSelects.forEach(select => {
             while (select.options.length > 1) select.remove(1);
             contacts.forEach(contact => {
-                if (contact.Name) { // Assuming contact object has a 'Name' property
-                    const option = new Option(contact.Name, contact.Name);
+                const name = contact.Name || contact.name;
+                if (name) {
+                    const option = new Option(name, name);
                     select.add(option);
                 }
             });
@@ -227,33 +230,18 @@ async function handleFormSubmit(event, sheetName, formId) {
     // The current Apps Script maps based on headers, so field names from form should match sheet headers.
     // The convertDateToBrazilian function above modifies the value directly.
 
-    const payload = {
-        action: 'addData',
-        sheetName: sheetName,
-        formData: dataObject // Send the object
-    };
-
     try {
-        if (!window.CONFIG || !window.CONFIG.APPS_SCRIPT_URL) {
-            throw new Error("APPS_SCRIPT_URL is not configured.");
-        }
-        const response = await fetch(window.CONFIG.APPS_SCRIPT_URL, {
-            method: 'POST',
-            // mode: 'no-cors', // 'no-cors' is problematic as you can't read the response.
-            // Apps Script doPost needs to return CORS headers if you want to read response directly.
-            // For simplicity, if your Apps Script is set to "allow anyone", it might work without complex CORS.
-            // The ContentService in Apps Script with .setMimeType(ContentService.MimeType.JSON) helps.
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8', // As per Apps Script recommendation for JSON string
-            },
-            body: JSON.stringify(payload) // Apps Script expects a stringified JSON in e.postData.contents
-        });
-
-        // We can't reliably read 'response.ok' or 'response.json()' if mode was 'no-cors'.
-        // Assuming the Apps Script returns a JSON response that we can parse.
-        const result = await response.json();
-
-        if (result.success) {
+        // Prefer Supabase if configured
+        if (window.CONFIG && window.CONFIG.SUPABASE_URL && window.CONFIG.SUPABASE_ANON_KEY && window.initSupabase && window.initSupabase()) {
+            const tableMap = {
+                [window.CONFIG.SHEETS.TASKS]: 'tasks',
+                [window.CONFIG.SHEETS.CONTACTS]: 'contacts',
+                [window.CONFIG.SHEETS.PROJECTS]: 'projects',
+                [window.CONFIG.SHEETS.COMPANIES]: 'companies'
+            };
+            const table = tableMap[sheetName];
+            if (!table) throw new Error('Unknown table for sheet ' + sheetName);
+            await window.sbInsert(table, dataObject);
             showToast('Success!', `${sheetName.slice(0,-1)} data added successfully. Refresh might be needed to see changes immediately.`, 'success');
             form.reset();
             // Close the modal if bootstrap is available
@@ -276,7 +264,20 @@ async function handleFormSubmit(event, sheetName, formId) {
             }, 1500);
 
         } else {
-            throw new Error(result.message || `Failed to add data to ${sheetName}.`);
+            // Fallback to existing local API add
+            const payload = { action: 'addData', sheetName: sheetName, formData: dataObject };
+            if (!window.CONFIG || !window.CONFIG.APPS_SCRIPT_URL) {
+                throw new Error("APPS_SCRIPT_URL is not configured.");
+            }
+            const response = await fetch(window.CONFIG.APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!result.success) throw new Error(result.message || `Failed to add data to ${sheetName}.`);
+            showToast('Success!', `${sheetName.slice(0,-1)} data added successfully.`, 'success');
+            form.reset();
         }
 
     } catch (error) {
@@ -297,6 +298,54 @@ function handleProjectSubmit(e) {
 }
 function handleCompanySubmit(e) {
     handleFormSubmit(e, window.CONFIG.SHEETS.COMPANIES, 'addCompanyForm');
+}
+
+// --- CSV Importers ---
+function setupCsvImporters() {
+    // Requires PapaParse via CDN
+    const files = [
+        { id: 'csvContacts', table: 'contacts' },
+        { id: 'csvCompanies', table: 'companies' },
+        { id: 'csvProjects', table: 'projects' },
+        { id: 'csvTasks', table: 'tasks' }
+    ];
+    files.forEach(cfg => {
+        const input = document.getElementById(cfg.id);
+        if (!input) return;
+        input.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!window.Papa) {
+                showToast('Error', 'CSV parser not loaded. Include PapaParse script.', 'danger');
+                return;
+            }
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: async (results) => {
+                    try {
+                        if (!(window.CONFIG && window.CONFIG.SUPABASE_URL && window.CONFIG.SUPABASE_ANON_KEY && window.initSupabase && window.initSupabase())) {
+                            showToast('Error', 'Supabase not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in config.js', 'danger');
+                            return;
+                        }
+                        const rows = results.data;
+                        for (let i = 0; i < rows.length; i += 1000) { // batch insert
+                            const batch = rows.slice(i, i + 1000);
+                            await window.sbInsert(cfg.table, batch);
+                        }
+                        showToast('Success', `Imported ${results.data.length} rows into ${cfg.table}.`, 'success');
+                    } catch (err) {
+                        console.error('CSV import error:', err);
+                        showToast('Error', `Failed to import CSV: ${err.message}`, 'danger');
+                    }
+                },
+                error: (err) => {
+                    console.error('CSV parse error:', err);
+                    showToast('Error', `Failed to parse CSV: ${err.message}`, 'danger');
+                }
+            });
+        });
+    });
 }
 
 // Remove old updateAddButtons function as modals are now triggered differently by index.html

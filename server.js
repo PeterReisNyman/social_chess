@@ -29,7 +29,33 @@ app.get('/api', (req, res) => {
       projects: readSheet('Projects').values.slice(1).map(row => ({
         Name: row[0],
         Company: row[1],
-        Status: row[2]
+        Status: row[2],
+        Stakeholders: row[8] // Needed by game-board network view
+      })),
+      // Include companies for richer dashboards and mappings
+      companies: readSheet('Companies').values.slice(1).map(row => ({
+        Name: row[0],
+        Type: row[1],
+        PrimaryContact: row[2],
+        Status: row[3],
+        Projects: row[4],
+        TotalPipeline: row[5],
+        TotalRevenue: row[6],
+        Notes: row[7]
+      })),
+      // Include tasks so the dashboard can calculate counts and recency
+      tasks: readSheet('Tasks').values.slice(1).map(row => ({
+        'Task Name': row[0],
+        Company: row[1],
+        Project: row[2],
+        Stakeholder: row[3],
+        'Due Date': row[4],
+        Priority: row[5],
+        Status: row[6],
+        Type: row[7],
+        Notes: row[8],
+        'Created Date': row[9],
+        'Last Modified': row[10]
       })),
       contacts: readSheet('Contacts').values.slice(1).map(row => ({
         Name: row[0],
@@ -44,14 +70,20 @@ app.get('/api', (req, res) => {
         Economic: row[1],
         Social: row[2],
         Political: row[3],
-        Career: row[4],
-        Cultural: row[5],
-        Intellectual: row[6]
+        Career: row[4]
       })),
       relationships: readSheet('Relationships').values.slice(1).map(row => ({
         Source: row[0],
         Target: row[1],
         Strength: row[2]
+      })),
+      // Optional dataset to connect investors with startups
+      investments: readSheet('Investments').values.slice(1).map(row => ({
+        Investor: row[0],
+        Startup: row[1],
+        Stage: row[2],
+        Amount: row[3],
+        Status: row[4]
       }))
     };
     return res.json({ success: true, data });

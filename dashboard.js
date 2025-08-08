@@ -10,13 +10,29 @@ let gameStatesData = [];
 async function loadDashboardData() {
     try {
         // Fetch all necessary data
-        const [tasksData, dashboardData, projectsData, interactionsData, contactsData] = await Promise.all([
-            fetch(buildApiUrl(CONFIG.SHEETS.TASKS)).then(r => r.json()),
-            fetch(buildApiUrl(CONFIG.SHEETS.DASHBOARD)).then(r => r.json()),
-            fetch(buildApiUrl(CONFIG.SHEETS.PROJECTS)).then(r => r.json()),
-            fetch(buildApiUrl(CONFIG.SHEETS.INTERACTIONS)).then(r => r.json()),
-            fetch(buildApiUrl(CONFIG.SHEETS.CONTACTS)).then(r => r.json())
-        ]);
+        let tasksData, dashboardData, projectsData, interactionsData, contactsData;
+        if (window.initSupabase && window.initSupabase()) {
+            const [tasksRows, projectsRows, contactsRows] = await Promise.all([
+                window.sbSelect('tasks'),
+                window.sbSelect('projects'),
+                window.sbSelect('contacts')
+            ]);
+            tasksData = { values: [['Task Name','Company','Project','Stakeholder','Due Date','Priority','Status','Type','Notes','Created Date','Last Modified'], ...tasksRows.map(r => [r.task_name,r.company,r.project,r.stakeholder,r.due_date,r.priority,r.status,r.type,r.notes,r.created_at,r.created_at])] };
+            projectsData = { values: [['Name','Company','Status','Start Date','Revenue Model','Fee Structure','Pipeline Value','Actual Revenue','Stakeholders','Next Milestone','Notes'], ...projectsRows.map(r => [r.name,r.company,r.status,r.start_date,r.revenue_model,r.fee_structure,r.pipeline_value,r.actual_revenue,r.stakeholders,r.next_milestone,r.notes])] };
+            contactsData = { values: [['Name','Organization','Role','Email','Phone','Type','Projects','Last Contact','Next Action','Relationship Strength','Notes','Tags'], ...contactsRows.map(r => [r.name,r.organization,r.role,r.email,r.phone,r.type,r.projects,r.last_contact,r.next_action,r.relationship_strength,r.notes,r.tags])] };
+            [dashboardData, interactionsData] = await Promise.all([
+                fetch(buildApiUrl(CONFIG.SHEETS.DASHBOARD)).then(r => r.json()),
+                fetch(buildApiUrl(CONFIG.SHEETS.INTERACTIONS)).then(r => r.json())
+            ]);
+        } else {
+            [tasksData, dashboardData, projectsData, interactionsData, contactsData] = await Promise.all([
+                fetch(buildApiUrl(CONFIG.SHEETS.TASKS)).then(r => r.json()),
+                fetch(buildApiUrl(CONFIG.SHEETS.DASHBOARD)).then(r => r.json()),
+                fetch(buildApiUrl(CONFIG.SHEETS.PROJECTS)).then(r => r.json()),
+                fetch(buildApiUrl(CONFIG.SHEETS.INTERACTIONS)).then(r => r.json()),
+                fetch(buildApiUrl(CONFIG.SHEETS.CONTACTS)).then(r => r.json())
+            ]);
+        }
 
         // Store data for Social Chess calculations
         allProjects = projectsData.values ? projectsData.values.slice(1).map((row, index) => ({

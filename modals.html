@@ -52,6 +52,11 @@
                     <button type="submit" class="btn btn-primary">Add Task</button>
                 </div>
             </form>
+            <div class="p-3 border-top">
+                <label class="form-label">Bulk import Tasks (CSV)</label>
+                <input type="file" id="csvTasks" accept=".csv" class="form-control">
+                <small class="text-muted">Headers: task_name,company,project,stakeholder,due_date,priority,status,type,notes</small>
+            </div>
         </div>
     </div>
 </div>
@@ -124,6 +129,11 @@
                     <button type="submit" class="btn btn-primary">Add Contact</button>
                 </div>
             </form>
+            <div class="p-3 border-top">
+                <label class="form-label">Bulk import Contacts (CSV)</label>
+                <input type="file" id="csvContacts" accept=".csv" class="form-control">
+                <small class="text-muted">Headers: name,organization,role,email,phone,type,projects,last_contact,next_action,relationship_strength,notes,tags</small>
+            </div>
         </div>
     </div>
 </div>
@@ -193,6 +203,11 @@
                     <button type="submit" class="btn btn-primary">Add Project</button>
                 </div>
             </form>
+            <div class="p-3 border-top">
+                <label class="form-label">Bulk import Projects (CSV)</label>
+                <input type="file" id="csvProjects" accept=".csv" class="form-control">
+                <small class="text-muted">Headers: name,company,status,start_date,revenue_model,fee_structure,pipeline_value,actual_revenue,stakeholders,next_milestone,notes</small>
+            </div>
         </div>
     </div>
 </div>
@@ -246,6 +261,11 @@
                     <button type="submit" class="btn btn-primary">Add Company</button>
                 </div>
             </form>
+            <div class="p-3 border-top">
+                <label class="form-label">Bulk import Companies (CSV)</label>
+                <input type="file" id="csvCompanies" accept=".csv" class="form-control">
+                <small class="text-muted">Headers: name,type,primary_contact,status,projects,total_pipeline,total_revenue,notes</small>
+            </div>
         </div>
     </div>
 </div>

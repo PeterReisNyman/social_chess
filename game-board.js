@@ -6,6 +6,7 @@ let allData = {
     contacts: [],
     capitalScores: [],
     relationships: [],
+    investments: [],
     // gameStates: [] // Add if you have a GameStates sheet and logic for it
 };
 let currentGame = null; // Stores the currently selected project object
@@ -56,22 +57,41 @@ async function initializeGameBoard() {
     }
 
     try {
-        const response = await fetch(`${window.CONFIG.APPS_SCRIPT_URL}?action=getAllData`);
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-        const result = await response.json();
-
-        if (result.success && result.data) {
-            allData.projects = result.data.projects || [];
-            allData.contacts = result.data.contacts || [];
-            allData.capitalScores = result.data.capitalScores || [];
-            allData.relationships = result.data.relationships || [];
-            // allData.gameStates = result.data.gameStates || [];
-
+        if (window.initSupabase && window.initSupabase()) {
+            const [projects, contacts, capitalScores, relationships, companies, investments] = await Promise.all([
+                window.sbSelect('projects'),
+                window.sbSelect('contacts'),
+                window.sbSelect('capital_scores'),
+                window.sbSelect('relationships'),
+                window.sbSelect('companies'),
+                window.sbSelect('investments')
+            ]);
+            allData.projects = projects.map(r => ({ Name: r.name, Company: r.company, Status: r.status, Stakeholders: r.stakeholders }));
+            allData.contacts = contacts.map(r => ({ Name: r.name, Role: r.role, Organization: r.organization, 'Contact Type': r.type, 'Relationship Strength': r.relationship_strength, Notes: r.notes, Email: r.email, Phone: r.phone }));
+            allData.capitalScores = capitalScores.map(r => ({ ContactName: r.contact_name, Economic: r.economic, Social: r.social, Political: r.political, Career: r.career }));
+            allData.relationships = relationships.map(r => ({ Source: r.source, Target: r.target, Strength: r.strength }));
+            allData.companies = companies.map(r => ({ Name: r.name, Type: r.type, PrimaryContact: r.primary_contact, Status: r.status }));
+            allData.investments = investments.map(r => ({ Investor: r.investor, Startup: r.startup, Stage: r.stage, Amount: r.amount, Status: r.status }));
             displayGamesList();
             initializeNetworkSVG();
-             if (prompt) prompt.classList.remove('hidden'); // Show "Select a game" after loading
+            if (prompt) prompt.classList.remove('hidden');
         } else {
-            throw new Error(result.message || "Failed to fetch game board data from backend.");
+            const response = await fetch(`${window.CONFIG.APPS_SCRIPT_URL}?action=getAllData`);
+            if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+            const result = await response.json();
+            if (result.success && result.data) {
+                allData.projects = result.data.projects || [];
+                allData.contacts = result.data.contacts || [];
+                allData.capitalScores = result.data.capitalScores || [];
+                allData.relationships = result.data.relationships || [];
+                allData.companies = result.data.companies || [];
+                allData.investments = result.data.investments || [];
+                displayGamesList();
+                initializeNetworkSVG();
+                if (prompt) prompt.classList.remove('hidden');
+            } else {
+                throw new Error(result.message || "Failed to fetch game board data from backend.");
+            }
         }
     } catch (error) {
         console.error('Error initializing game board:', error);
@@ -157,9 +177,7 @@ function displayPlayerDetails(playerData) { // playerData is the D3 node data
         { label: 'Economic', value: parseFloat(capital.Economic) || 0, icon: '💰', color: 'bg-blue-500' },
         { label: 'Social', value: parseFloat(capital.Social) || 0, icon: '🤝', color: 'bg-green-500' },
         { label: 'Political', value: parseFloat(capital.Political) || 0, icon: '🏛️', color: 'bg-red-500' },
-        { label: 'Career', value: parseFloat(capital.Career) || 0, icon: '🎓', color: 'bg-yellow-500' },
-        { label: 'Cultural', value: parseFloat(capital.Cultural) || 0, icon: '🎭', color: 'bg-purple-500' },
-        { label: 'Intellectual', value: parseFloat(capital.Intellectual) || 0, icon: '💡', color: 'bg-indigo-500' }
+        { label: 'Career', value: parseFloat(capital.Career) || 0, icon: '🎓', color: 'bg-yellow-500' }
     ];
 
     let capitalHTML = capitals.map(cap => `
@@ -307,15 +325,15 @@ function drawNetworkForCurrentGame() {
     // Filter relationships from 'allData.relationships' that involve only the gameNodes
     const gameLinks = allData.relationships
         .filter(rel => {
-            const sourceExists = gameNodes.some(node => node.id === rel.SourceContact);
-            const targetExists = gameNodes.some(node => node.id === rel.TargetContact);
+            const sourceExists = gameNodes.some(node => node.id === rel.Source);
+            const targetExists = gameNodes.some(node => node.id === rel.Target);
             return sourceExists && targetExists;
         })
         .map(rel => ({
-            source: rel.SourceContact, // Must match node 'id'
-            target: rel.TargetContact, // Must match node 'id'
+            source: rel.Source, // Must match node 'id'
+            target: rel.Target, // Must match node 'id'
             type: rel.RelationshipType || 'related', // e.g., 'Reports To', 'Influences', 'Blocks'
-            strength: parseFloat(rel.Strength) || 0.5 // Numerical strength 0-1
+            strength: parseFloat(rel.Strength) || 0.5 // Numerical strength 0-1 (falls back if string labels like 'Strong')
         }));
 
     // --- D3 Data Binding ---
@@ -443,11 +461,93 @@ function switchView(viewType, clickedButton) {
         } else {
              document.getElementById('select-game-prompt').classList.remove('hidden');
         }
+    } else if (viewType === 'influence') {
+        // Render investor-startup map as a minimal prototype
+        document.getElementById('select-game-prompt').classList.add('hidden');
+        drawInvestorStartupMap(vizContainer);
     } else {
         vizContainer.innerHTML = `<div class="p-10 text-center text-gray-500">"${viewType}" view is under construction.</div>`;
-        // Hide the select game prompt if it's visible for other views
         document.getElementById('select-game-prompt').classList.add('hidden');
     }
+}
+
+// --- Investor-Startup Influence Map (Prototype) ---
+function drawInvestorStartupMap(vizContainer) {
+    // Build a bipartite-like graph from companies, contacts, and investments
+    const svgEl = document.createElement('svg');
+    svgEl.setAttribute('id', 'network-svg-element');
+    svgEl.setAttribute('class', 'w-full h-full');
+    vizContainer.appendChild(svgEl);
+
+    svg = d3.select(svgEl);
+    networkGroup = svg.append('g').attr('class', 'network-group');
+
+    const container = vizContainer;
+    width = container.clientWidth;
+    height = container.clientHeight;
+    svg.attr('width', width).attr('height', height);
+
+    // Separate entities
+    const investors = allData.companies ? allData.companies.filter(c => (c.Type || '').toLowerCase().includes('invest')) : [];
+    const startups = allData.companies ? allData.companies.filter(c => (c.Type || '').toLowerCase().includes('startup')) : [];
+
+    const nodes = [];
+    const links = [];
+
+    investors.forEach(inv => nodes.push({ id: `INV:${inv.Name}`, name: inv.Name, role: 'Investor', side: 'left' }));
+    startups.forEach(st => nodes.push({ id: `ST:${st.Name}`, name: st.Name, role: 'Startup', side: 'right' }));
+
+    // If an Investments sheet exists, connect from it; else infer from Projects (Company field)
+    if (allData.investments && allData.investments.length > 0) {
+        allData.investments.forEach(inv => {
+            const src = nodes.find(n => n.id === `INV:${inv.Investor}`);
+            const dst = nodes.find(n => n.id === `ST:${inv.Startup}`);
+            if (src && dst) links.push({ source: src.id, target: dst.id, stage: inv.Stage, amount: parseFloat(inv.Amount) || 0 });
+        });
+    }
+
+    // Simple layout: investors on left, startups on right
+    const leftX = width * 0.25;
+    const rightX = width * 0.75;
+    const leftNodes = nodes.filter(n => n.side === 'left');
+    const rightNodes = nodes.filter(n => n.side === 'right');
+
+    leftNodes.forEach((n, i) => { n.x = leftX; n.y = (i + 1) * (height / (leftNodes.length + 1)); });
+    rightNodes.forEach((n, i) => { n.x = rightX; n.y = (i + 1) * (height / (rightNodes.length + 1)); });
+
+    const linkSel = networkGroup.append('g').selectAll('line')
+        .data(links)
+        .enter().append('line')
+        .attr('x1', d => nodes.find(n => n.id === d.source)?.x || 0)
+        .attr('y1', d => nodes.find(n => n.id === d.source)?.y || 0)
+        .attr('x2', d => nodes.find(n => n.id === d.target)?.x || 0)
+        .attr('y2', d => nodes.find(n => n.id === d.target)?.y || 0)
+        .attr('stroke', '#94a3b8')
+        .attr('stroke-width', d => Math.max(1, Math.min(6, (d.amount || 0) / 10000)));
+
+    const nodeSel = networkGroup.append('g').selectAll('g.node')
+        .data(nodes)
+        .enter().append('g')
+        .attr('class', 'node')
+        .attr('transform', d => `translate(${d.x},${d.y})`);
+
+    nodeSel.append('circle')
+        .attr('r', 22)
+        .style('fill', d => d.side === 'left' ? tailwind.config.theme.extend.colors['brand-secondary'] : '#fff')
+        .style('stroke', d => d.side === 'left' ? tailwind.config.theme.extend.colors['brand-secondary'] : tailwind.config.theme.extend.colors['brand-secondary'])
+        .style('stroke-width', 2);
+
+    nodeSel.append('text')
+        .attr('class', 'name')
+        .attr('text-anchor', 'middle')
+        .attr('dy', -28)
+        .text(d => d.name);
+
+    nodeSel.append('text')
+        .attr('class', 'role')
+        .attr('text-anchor', 'middle')
+        .attr('dy', 4)
+        .text(d => d.role);
 }
 
 // --- AI Insight ---
@@ -494,8 +594,6 @@ async function handleAIInsightRequest() {
         if (capitalScores.Social) promptText += `- Social: ${parseFloat(capitalScores.Social) || 0}\n`;
         if (capitalScores.Political) promptText += `- Political: ${parseFloat(capitalScores.Political) || 0}\n`;
         if (capitalScores.Career) promptText += `- Career: ${parseFloat(capitalScores.Career) || 0}\n`;
-        if (capitalScores.Cultural) promptText += `- Cultural: ${parseFloat(capitalScores.Cultural) || 0}\n`;
-        if (capitalScores.Intellectual) promptText += `- Intellectual: ${parseFloat(capitalScores.Intellectual) || 0}\n`;
     }
     
     // TODO: Add interaction history if available from 'Interactions' sheet

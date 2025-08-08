@@ -8,7 +8,7 @@
           content="default-src 'self';
                    script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://script.google.com https://cdn.jsdelivr.net;
                    style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://rsms.me https://cdn.jsdelivr.net;
-                   connect-src 'self' https://script.google.com https://script.googleusercontent.com;
+                   connect-src 'self' https://script.google.com https://script.googleusercontent.com https://*.supabase.co wss://*.supabase.co;
                    img-src 'self' data: https://placehold.co;
                    font-src 'self' https://rsms.me;">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -206,7 +206,9 @@
         <p id="toast-message">Notification message!</p>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" xintegrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
     <script type="module">
         // Ensure this path is correct if you move config.js
@@ -281,28 +283,104 @@
             const APPS_SCRIPT_URL_LOCAL = window.CONFIG && window.CONFIG.APPS_SCRIPT_URL ? window.CONFIG.APPS_SCRIPT_URL : null;
 
             async function fetchDashboardData() {
-                if (!APPS_SCRIPT_URL_LOCAL) {
-                    console.error("APPS_SCRIPT_URL is not configured correctly for fetching dashboard data. Check config.js.");
-                    displayPlaceholderData();
-                    return;
-                }
-
                 try {
-                    const response = await fetch(`${APPS_SCRIPT_URL_LOCAL}?action=getAllData`);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    const result = await response.json();
-
-                    if (result.success && result.data) {
-                        populateDashboard(result.data);
+                    if (window.initSupabase && window.initSupabase()) {
+                        const [projects, contacts, tasks, companies] = await Promise.all([
+                            window.sbSelect('projects'),
+                            window.sbSelect('contacts'),
+                            window.sbSelect('tasks'),
+                            window.sbSelect('companies')
+                        ]);
+                        populateDashboardFromSupabase({ projects, contacts, tasks, companies });
+                    } else if (APPS_SCRIPT_URL_LOCAL) {
+                        const response = await fetch(`${APPS_SCRIPT_URL_LOCAL}?action=getAllData`);
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        const result = await response.json();
+                        if (result.success && result.data) {
+                            populateDashboard(result.data);
+                        } else {
+                            throw new Error(result.message || 'Unknown error from local API');
+                        }
                     } else {
-                        console.error("Failed to fetch dashboard data from Apps Script:", result.message || "Unknown error from Apps Script");
-                        displayPlaceholderData(); 
+                        throw new Error('No data source configured.');
                     }
                 } catch (error) {
-                    console.error("Error fetching dashboard data (network or parsing issue):", error);
-                    displayPlaceholderData(); 
+                    console.error('Error fetching dashboard data:', error);
+                    displayPlaceholderData();
+                }
+            }
+
+            function populateDashboardFromSupabase(sb) {
+                const activeProjects = (sb.projects || []).filter(p => (p.status || '').toLowerCase() === 'active');
+                document.getElementById('active-projects-count').textContent = activeProjects.length;
+                document.getElementById('total-contacts-count').textContent = (sb.contacts || []).length;
+                const pendingTasks = (sb.tasks || []).filter(t => {
+                    const s = (t.status || '').toLowerCase();
+                    return s !== 'completed' && s !== 'done';
+                });
+                document.getElementById('pending-tasks-count').textContent = pendingTasks.length;
+                document.getElementById('key-companies-count').textContent = (sb.companies || []).length;
+
+                const recentActivityList = document.getElementById('recent-activity-list');
+                recentActivityList.innerHTML = '';
+                const recent = [...(sb.tasks || [])].sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0)).slice(0,5);
+                if (recent.length) {
+                    recent.forEach(item => {
+                        const el = document.createElement('div');
+                        el.className = 'flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer';
+                        el.innerHTML = `
+                            <div class="mr-3">
+                                <div class="w-10 h-10 bg-brand-secondary text-white rounded-full flex items-center justify-center text-sm font-semibold">
+                                    ${(item.task_name || 'T').substring(0,1).toUpperCase()}
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-brand-dark">${item.task_name || 'Unnamed Task'}</p>
+                                <p class="text-xs text-gray-500">Project: ${item.project || 'N/A'} - Due: ${item.due_date || 'N/A'}</p>
+                            </div>`;
+                        recentActivityList.appendChild(el);
+                    });
+                } else {
+                    recentActivityList.innerHTML = '<p class="text-gray-500 text-center py-4">No recent activity found.</p>';
+                }
+
+                const upcomingTasksList = document.getElementById('upcoming-tasks-list');
+                upcomingTasksList.innerHTML = '';
+                const today = new Date().toISOString().split('T')[0];
+                const upcoming = (sb.tasks || []).filter(t => t.due_date && t.due_date >= today).sort((a,b)=> a.due_date>b.due_date?1:-1).slice(0,5);
+                if (upcoming.length) {
+                    upcoming.forEach(item => {
+                        const li = document.createElement('div');
+                        li.className = 'flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors';
+                        li.innerHTML = `<div class=\"mr-3\"><div class=\"w-2 h-2 bg-brand-accent rounded-full\"></div></div>
+                            <div>
+                                <p class=\"text-sm font-medium text-brand-dark\">${item.task_name || 'Unnamed Task'}</p>
+                                <p class=\"text-xs text-gray-500\">Due: ${item.due_date || 'N/A'} — ${item.project || ''}</p>
+                            </div>`;
+                        upcomingTasksList.appendChild(li);
+                    });
+                } else {
+                    upcomingTasksList.innerHTML = '<p class="text-gray-500 text-center py-4">No upcoming tasks.</p>';
+                }
+
+                const keyRelationshipsList = document.getElementById('key-relationships-list');
+                keyRelationshipsList.innerHTML = '';
+                const order = { strong:1, medium:2, weak:3 };
+                const sorted = [...(sb.contacts||[])].sort((a,b)=> (order[(a.relationship_strength||'').toLowerCase()]||4) - (order[(b.relationship_strength||'').toLowerCase()]||4)).slice(0,4);
+                if (sorted.length) {
+                    sorted.forEach(contact => {
+                        const card = document.createElement('div');
+                        card.className = 'bg-gray-50 p-4 rounded-lg text-center hover:shadow-md transition-shadow cursor-pointer';
+                        const name = contact.name || 'Contact';
+                        card.innerHTML = `
+                            <img src=\"https://placehold.co/80x80/2a5298/FFFFFF?text=${name.substring(0,1).toUpperCase()}\" alt=\"${name}\" class=\"w-16 h-16 rounded-full mx-auto mb-2 border-2 border-brand-secondary\">
+                            <h4 class=\"font-semibold text-brand-dark\">${name}</h4>
+                            <p class=\"text-xs text-gray-500\">${contact.role || contact.organization || 'N/A'}</p>
+                            <button class=\"mt-2 text-xs bg-brand-accent text-white px-3 py-1 rounded-full hover:bg-opacity-80\">View</button>`;
+                        keyRelationshipsList.appendChild(card);
+                    });
+                } else {
+                    keyRelationshipsList.innerHTML = '<p class="text-gray-500 text-center py-4 col-span-full">No key relationships to display.</p>';
                 }
             }
 
@@ -434,6 +512,7 @@
 
     </script>
     <script src="config.js"></script>
+    <script src="supabase.js"></script>
     <script src="forms.js"></script> 
 </body>
 </html>

@@ -8,7 +8,7 @@
           content="default-src 'self';
                    script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://script.google.com https://cdn.jsdelivr.net https://d3js.org;
                    style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://rsms.me https://cdn.jsdelivr.net;
-                   connect-src 'self' https://script.google.com https://script.googleusercontent.com;
+                   connect-src 'self' https://script.google.com https://script.googleusercontent.com https://*.supabase.co wss://*.supabase.co;
                    img-src 'self' data: https://placehold.co;
                    font-src 'self' https://rsms.me;">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,167 +17,105 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
                         'brand-primary': '#1e3c72',
                         'brand-secondary': '#2a5298',
                         'brand-accent': '#f59e0b',
                         'brand-light': '#f0f4f8',
-                        'brand-dark': '#0f172a',
+                        'brand-dark': '#0f172a'
                     }
                 }
             }
         }
     </script>
     <style>
-        /* Custom scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: #c4c4c4; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #a1a1a1; }
-
-        /* D3 Network Styles */
-        .node circle {
-            stroke-width: 2px;
-            transition: r 0.2s ease-in-out, fill 0.2s ease-in-out;
-        }
-        .node text {
-            pointer-events: none;
-            font-size: 10px;
-            fill: #333;
-        }
-        .node .name {
-            font-weight: 600;
-            font-size: 12px;
-        }
-        .node .role {
-            font-size: 9px;
-            fill: #555;
-        }
-        .link {
-            stroke-opacity: 0.6;
-            transition: stroke-opacity 0.2s ease-in-out, stroke-width 0.2s ease-in-out;
-        }
-        .node:hover circle {
-            /* fill: #f59e0b; */ /* Example hover fill */
-        }
-        .node.selected circle {
-            stroke: #f59e0b; /* brand-accent */
-            stroke-width: 4px;
-        }
-        .loading-spinner-board {
-            border: 5px solid rgba(255, 255, 255, 0.2);
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            border-left-color: #fff;
-            animation: spin 1s ease infinite;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        @keyframes spin {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            100% { transform: translate(-50%, -50%) rotate(360deg); }
-        }
+        .node circle { stroke-width: 2px; transition: r 0.2s ease-in-out, fill 0.2s ease-in-out; }
+        .node text { pointer-events: none; font-size: 10px; fill: #333; }
+        .node .name { font-weight: 600; font-size: 12px; }
+        .node .role { font-size: 9px; fill: #555; }
+        .link { stroke-opacity: 0.6; transition: stroke-opacity 0.2s ease-in-out, stroke-width 0.2s ease-in-out; }
+        .node.selected circle { stroke: #f59e0b; stroke-width: 4px; }
+        .loading-spinner-board { border: 5px solid rgba(255,255,255,0.2); width: 50px; height: 50px; border-radius: 50%; border-left-color: #fff; animation: spin 1s ease infinite; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg);} 100% { transform: translate(-50%, -50%) rotate(360deg);} }
     </style>
-    </head>
+</head>
 <body class="bg-brand-light font-sans antialiased">
-    <div class="flex h-screen overflow-hidden">
-        <aside class="w-64 bg-brand-primary text-white flex flex-col fixed inset-y-0 left-0 z-30">
-            <div class="flex items-center justify-center h-20 border-b border-brand-secondary">
-                <h1 class="text-2xl font-semibold tracking-wider">♔ Social Chess</h1>
-            </div>
-            <nav class="flex-grow p-4 space-y-2">
-                <a href="index.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-brand-secondary hover:bg-opacity-75 transition-colors">
-                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-                    Dashboard
-                </a>
-                 <a href="tasks.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-brand-secondary hover:bg-opacity-75 transition-colors">
-                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                    Tasks
-                </a>
-                <a href="contacts.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-brand-secondary hover:bg-opacity-75 transition-colors">
-                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                    Contacts
-                </a>
-                <a href="projects.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-brand-secondary hover:bg-opacity-75 transition-colors">
-                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                    Projects
-                </a>
-                <a href="companies.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-brand-secondary hover:bg-opacity-75 transition-colors">
-                   <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                    Companies
-                </a>
-                <a href="game-board.html" class="flex items-center px-4 py-3 text-sm font-medium bg-brand-secondary rounded-lg hover:bg-opacity-75 transition-colors">
-                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"></path></svg>
-                    Game Board
-                </a>
-            </nav>
-             <div class="p-4 mt-auto border-t border-brand-secondary">
-                <p class="text-xs text-center text-gray-400">&copy; <span id="currentYearGB"></span> Social Chess</p>
-            </div>
-        </aside>
+<div class="flex h-screen overflow-hidden">
+    <aside class="w-64 bg-brand-primary text-white flex flex-col fixed inset-y-0 left-0 z-30">
+        <div class="flex items-center justify-center h-20 border-b border-brand-secondary">
+            <h1 class="text-2xl font-semibold tracking-wider">♔ Social Chess</h1>
+        </div>
+        <nav class="flex-grow p-4 space-y-2">
+            <a href="index.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-brand-secondary hover:bg-opacity-75 transition-colors">Dashboard</a>
+            <a href="tasks.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-brand-secondary hover:bg-opacity-75 transition-colors">Tasks</a>
+            <a href="contacts.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-brand-secondary hover:bg-opacity-75 transition-colors">Contacts</a>
+            <a href="projects.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-brand-secondary hover:bg-opacity-75 transition-colors">Projects</a>
+            <a href="companies.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-brand-secondary hover:bg-opacity-75 transition-colors">Companies</a>
+            <a href="game-board.html" class="flex items-center px-4 py-3 text-sm font-medium bg-brand-secondary rounded-lg hover:bg-opacity-75 transition-colors">Game Board</a>
+        </nav>
+        <div class="p-4 mt-auto border-t border-brand-secondary">
+            <p class="text-xs text-center text-gray-400">© <span id="currentYearGB"></span> Social Chess</p>
+        </div>
+    </aside>
 
-        <main class="flex-1 ml-64 overflow-hidden">
-            <div class="h-full grid grid-cols-12 gap-0">
-                <div class="col-span-12 lg:col-span-2 bg-white border-r border-gray-200 h-full flex flex-col">
-                    <div class="p-4 border-b">
-                        <h3 class="text-lg font-semibold text-brand-dark">Active Games (Projects)</h3>
-                    </div>
-                    <div id="games-list-container" class="flex-grow overflow-y-auto p-4 space-y-2">
-                        <div class="text-center py-10 text-gray-400">
-                            <p>Loading games...</p>
-                        </div>
+    <main class="flex-1 ml-64 overflow-hidden">
+        <div class="h-full grid grid-cols-12 gap-0">
+            <div class="col-span-12 lg:col-span-2 bg-white border-r border-gray-200 h-full flex flex-col">
+                <div class="p-4 border-b">
+                    <h3 class="text-lg font-semibold text-brand-dark">Active Games (Projects)</h3>
+                </div>
+                <div id="games-list-container" class="flex-grow overflow-y-auto p-4 space-y-2">
+                    <div class="text-center py-10 text-gray-400"><p>Loading games...</p></div>
+                </div>
+            </div>
+
+            <div class="col-span-12 lg:col-span-7 bg-gray-100 h-full flex flex-col relative">
+                <div class="p-4 border-b bg-white flex justify-between items-center">
+                    <h2 id="current-game-title-display" class="text-xl font-semibold text-brand-dark">Select a Game</h2>
+                    <div class="view-controls flex space-x-2">
+                        <button class="view-btn px-3 py-1.5 text-xs font-medium rounded-md bg-brand-secondary text-white opacity-100 hover:opacity-90" data-view="network">Network</button>
+                        <button class="view-btn px-3 py-1.5 text-xs font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300" data-view="influence">Influence Map</button>
+                        <button class="view-btn px-3 py-1.5 text-xs font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300" data-view="timeline">Timeline</button>
                     </div>
                 </div>
-
-                <div class="col-span-12 lg:col-span-7 bg-gray-100 h-full flex flex-col relative">
-                    <div class="p-4 border-b bg-white flex justify-between items-center">
-                        <h2 id="current-game-title-display" class="text-xl font-semibold text-brand-dark">Select a Game</h2>
-                        <div class="view-controls flex space-x-2">
-                            <button class="view-btn px-3 py-1.5 text-xs font-medium rounded-md bg-brand-secondary text-white opacity-100 hover:opacity-90" data-view="network">Network</button>
-                            <button class="view-btn px-3 py-1.5 text-xs font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300" data-view="influence">Influence Map</button>
-                            <button class="view-btn px-3 py-1.5 text-xs font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300" data-view="timeline">Timeline</button>
-                        </div>
-                    </div>
-                    <div id="network-visualization-container" class="flex-grow relative bg-gradient-to-br from-slate-100 to-gray-200">
-                        <svg id="network-svg-element" class="w-full h-full"></svg>
-                        <div id="board-loader" class="loading-spinner-board hidden"></div>
-                        <div id="select-game-prompt" class="absolute inset-0 flex items-center justify-center text-gray-500 text-lg">
-                            <p>Please select a game from the left sidebar to view the board.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-span-12 lg:col-span-3 bg-white border-l border-gray-200 h-full flex flex-col">
-                    <div class="p-4 border-b">
-                        <h3 class="text-lg font-semibold text-brand-dark">Player Details</h3>
-                    </div>
-                    <div id="player-details-panel-content" class="flex-grow overflow-y-auto p-4">
-                        <div class="text-center text-gray-400 pt-10">
-                            <p>Select a player node from the network to view their details and capital scores.</p>
-                        </div>
-                        </div>
-                    <div class="p-4 border-t">
-                         <button id="ai-insight-button" class="w-full bg-brand-accent text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors text-sm font-medium flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-                            Get AI Insight
-                        </button>
+                <div id="network-visualization-container" class="flex-grow relative bg-gradient-to-br from-slate-100 to-gray-200">
+                    <svg id="network-svg-element" class="w-full h-full"></svg>
+                    <div id="board-loader" class="loading-spinner-board hidden"></div>
+                    <div id="select-game-prompt" class="absolute inset-0 flex items-center justify-center text-gray-500 text-lg">
+                        <p>Please select a game from the left sidebar to view the board.</p>
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
 
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="config.js"></script>
-    <script src="game-board.js"></script>
-    <script>
-        document.getElementById('currentYearGB').textContent = new Date().getFullYear();
-    </script>
+            <div class="col-span-12 lg:col-span-3 bg-white border-l border-gray-200 h-full flex flex-col">
+                <div class="p-4 border-b">
+                    <h3 class="text-lg font-semibold text-brand-dark">Player Details</h3>
+                </div>
+                <div id="player-details-panel-content" class="flex-grow overflow-y-auto p-4">
+                    <div class="text-center text-gray-400 pt-10">
+                        <p>Select a player node from the network to view their details.</p>
+                    </div>
+                </div>
+                <div class="p-4 border-t">
+                    <button id="ai-insight-button" class="w-full px-4 py-2 text-sm font-medium rounded-md bg-brand-secondary text-white opacity-100 hover:opacity-90" disabled>
+                        Get AI Insight
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+<script src="game-board.js"></script>
 </body>
 </html>

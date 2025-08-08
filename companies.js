@@ -3,21 +3,34 @@ let allCompanies = [];
 
 async function loadCompaniesData() {
     try {
-        const response = await fetch(buildApiUrl(CONFIG.SHEETS.COMPANIES));
-        const data = await response.json();
-        
-        // Skip header row and store companies
-        allCompanies = data.values.slice(1).map((row, index) => ({
-            id: index,
-            name: row[0] || '',
-            type: row[1] || '',
-            primaryContact: row[2] || '',
-            status: row[3] || '',
-            projects: row[4] || '',
-            totalPipeline: parseFloat(row[5]) || 0,
-            totalRevenue: parseFloat(row[6]) || 0,
-            notes: row[7] || ''
-        }));
+        if (window.initSupabase && window.initSupabase()) {
+            const rows = await window.sbSelect('companies');
+            allCompanies = rows.map((row, index) => ({
+                id: index,
+                name: row.name || '',
+                type: row.type || '',
+                primaryContact: row.primary_contact || '',
+                status: row.status || '',
+                projects: row.projects || '',
+                totalPipeline: parseFloat(row.total_pipeline) || 0,
+                totalRevenue: parseFloat(row.total_revenue) || 0,
+                notes: row.notes || ''
+            }));
+        } else {
+            const response = await fetch(buildApiUrl(CONFIG.SHEETS.COMPANIES));
+            const data = await response.json();
+            allCompanies = data.values.slice(1).map((row, index) => ({
+                id: index,
+                name: row[0] || '',
+                type: row[1] || '',
+                primaryContact: row[2] || '',
+                status: row[3] || '',
+                projects: row[4] || '',
+                totalPipeline: parseFloat(row[5]) || 0,
+                totalRevenue: parseFloat(row[6]) || 0,
+                notes: row[7] || ''
+            }));
+        }
         
         // Update statistics
         updateCompanyStats();

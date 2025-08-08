@@ -4,33 +4,50 @@ let allTasks = [];
 
 async function loadProjectsData() {
     try {
-        // Fetch both projects and tasks data
-        const [projectsResponse, tasksResponse] = await Promise.all([
-            fetch(buildApiUrl(CONFIG.SHEETS.PROJECTS)),
-            fetch(buildApiUrl(CONFIG.SHEETS.TASKS))
-        ]);
-        
-        const projectsData = await projectsResponse.json();
-        const tasksData = await tasksResponse.json();
-        
-        // Skip header row and store projects
-        allProjects = projectsData.values.slice(1).map((row, index) => ({
-            id: index,
-            name: row[0] || '',
-            company: row[1] || '',
-            status: row[2] || '',
-            startDate: row[3] || '',
-            revenueModel: row[4] || '',
-            feeStructure: row[5] || '',
-            pipelineValue: row[6] || 0,
-            actualRevenue: row[7] || 0,
-            stakeholders: row[8] || '',
-            nextMilestone: row[9] || '',
-            notes: row[10] || ''
-        }));
-        
-        // Store tasks for counting
-        allTasks = tasksData.values.slice(1);
+        if (window.initSupabase && window.initSupabase()) {
+            const [pRows, tRows] = await Promise.all([
+                window.sbSelect('projects'),
+                window.sbSelect('tasks')
+            ]);
+            allProjects = pRows.map((row, index) => ({
+                id: index,
+                name: row.name || '',
+                company: row.company || '',
+                status: row.status || '',
+                startDate: row.start_date || '',
+                revenueModel: row.revenue_model || '',
+                feeStructure: row.fee_structure || '',
+                pipelineValue: row.pipeline_value || 0,
+                actualRevenue: row.actual_revenue || 0,
+                stakeholders: row.stakeholders || '',
+                nextMilestone: row.next_milestone || '',
+                notes: row.notes || ''
+            }));
+            allTasks = tRows.map(r => [r.task_name, r.company, r.project, r.stakeholder, r.due_date, r.priority, r.status]);
+        } else {
+            // Fetch both projects and tasks data from local JSON
+            const [projectsResponse, tasksResponse] = await Promise.all([
+                fetch(buildApiUrl(CONFIG.SHEETS.PROJECTS)),
+                fetch(buildApiUrl(CONFIG.SHEETS.TASKS))
+            ]);
+            const projectsData = await projectsResponse.json();
+            const tasksData = await tasksResponse.json();
+            allProjects = projectsData.values.slice(1).map((row, index) => ({
+                id: index,
+                name: row[0] || '',
+                company: row[1] || '',
+                status: row[2] || '',
+                startDate: row[3] || '',
+                revenueModel: row[4] || '',
+                feeStructure: row[5] || '',
+                pipelineValue: row[6] || 0,
+                actualRevenue: row[7] || 0,
+                stakeholders: row[8] || '',
+                nextMilestone: row[9] || '',
+                notes: row[10] || ''
+            }));
+            allTasks = tasksData.values.slice(1);
+        }
         
         // Display projects
         displayProjects();
