@@ -12,10 +12,3 @@ begin;
     public.companies
   restart identity cascade;
 commit;
-
--- Drop and recreate the public schema
-
-drop schema if exists public cascade;
-create schema public;
-create extension if not exists "pgcrypto";
-
