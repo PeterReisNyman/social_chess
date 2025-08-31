@@ -4,42 +4,23 @@ let filteredTasks = [];
 
 async function loadTasksData() {
     try {
-        if (window.initSupabase && window.initSupabase()) {
-            const rows = await window.sbSelect('tasks');
-            allTasks = rows.map((row, index) => ({
-                id: index,
-                name: row.task_name || '',
-                company: row.company || '',
-                project: row.project || '',
-                stakeholder: row.stakeholder || '',
-                dueDate: row.due_date || '',
-                priority: row.priority || '',
-                status: row.status || '',
-                type: row.type || '',
-                notes: row.notes || '',
-                createdDate: row.created_at || '',
-                lastModified: row.created_at || ''
-            }));
-        } else {
-            const response = await fetch(buildApiUrl(CONFIG.SHEETS.TASKS));
-            const data = await response.json();
-            
-            // Skip header row and store tasks
-            allTasks = data.values.slice(1).map((row, index) => ({
-                id: index,
-                name: row[0] || '',
-                company: row[1] || '',
-                project: row[2] || '',
-                stakeholder: row[3] || '',
-                dueDate: row[4] || '',
-                priority: row[5] || '',
-                status: row[6] || '',
-                type: row[7] || '',
-                notes: row[8] || '',
-                createdDate: row[9] || '',
-                lastModified: row[10] || ''
-            }));
-        }
+        const response = await fetch(window.backend('tasks'));
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const rows = await response.json();
+        allTasks = rows.map((row, index) => ({
+            id: index,
+            name: row.name || '',
+            company: row.company || '',
+            project: row.project || '',
+            stakeholder: row.stakeholder || '',
+            dueDate: row.dueDate || '',
+            priority: row.priority || '',
+            status: row.status || '',
+            type: row.type || '',
+            notes: row.notes || '',
+            createdDate: row.createdAt || '',
+            lastModified: row.createdAt || ''
+        }));
         
         filteredTasks = [...allTasks];
         

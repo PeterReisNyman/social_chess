@@ -100,8 +100,7 @@ app.get('/api', (req, res) => {
 // Inject selected environment variables into client as window.__ENV__
 app.get('/env.js', (req, res) => {
   const env = {
-    SUPABASE_URL: process.env.SUPABASE_URL || '',
-    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || ''
+    BACKEND_API_URL: process.env.BACKEND_API_URL || ''
   };
   res.setHeader('Content-Type', 'application/javascript');
   res.send(`window.__ENV__ = ${JSON.stringify(env)};`);

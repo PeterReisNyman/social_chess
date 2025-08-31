@@ -3,34 +3,20 @@ let allCompanies = [];
 
 async function loadCompaniesData() {
     try {
-        if (window.initSupabase && window.initSupabase()) {
-            const rows = await window.sbSelect('companies');
-            allCompanies = rows.map((row, index) => ({
-                id: index,
-                name: row.name || '',
-                type: row.type || '',
-                primaryContact: row.primary_contact || '',
-                status: row.status || '',
-                projects: row.projects || '',
-                totalPipeline: parseFloat(row.total_pipeline) || 0,
-                totalRevenue: parseFloat(row.total_revenue) || 0,
-                notes: row.notes || ''
-            }));
-        } else {
-            const response = await fetch(buildApiUrl(CONFIG.SHEETS.COMPANIES));
-            const data = await response.json();
-            allCompanies = data.values.slice(1).map((row, index) => ({
-                id: index,
-                name: row[0] || '',
-                type: row[1] || '',
-                primaryContact: row[2] || '',
-                status: row[3] || '',
-                projects: row[4] || '',
-                totalPipeline: parseFloat(row[5]) || 0,
-                totalRevenue: parseFloat(row[6]) || 0,
-                notes: row[7] || ''
-            }));
-        }
+        const response = await fetch(window.backend('companies'));
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const rows = await response.json();
+        allCompanies = rows.map((row, index) => ({
+            id: index,
+            name: row.name || '',
+            type: row.type || '',
+            primaryContact: row.primaryContact || '',
+            status: row.status || '',
+            projects: row.projects || '',
+            totalPipeline: parseFloat(row.totalPipeline) || 0,
+            totalRevenue: parseFloat(row.totalRevenue) || 0,
+            notes: row.notes || ''
+        }));
         
         // Update statistics
         updateCompanyStats();

@@ -126,24 +126,12 @@ function setupFormHandlers() {
 }
 
 async function populateFormDropdowns() {
-    // Populate dropdowns from Supabase if configured, otherwise from local API
+    // Populate dropdowns from NestJS backend
     let allData = {};
     try {
-        if (window.CONFIG && window.CONFIG.SUPABASE_URL && window.CONFIG.SUPABASE_ANON_KEY && window.initSupabase && window.initSupabase()) {
-            const [companies, projects, contacts] = await Promise.all([
-                window.sbSelect('companies'),
-                window.sbSelect('projects'),
-                window.sbSelect('contacts')
-            ]);
-            allData = { companies, projects, contacts };
-        } else {
-            if (!window.CONFIG || !window.CONFIG.APPS_SCRIPT_URL) throw new Error('No data source configured');
-            const response = await fetch(`${window.CONFIG.APPS_SCRIPT_URL}?action=getAllData`);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const result = await response.json();
-            if (!result.success || !result.data) throw new Error(result.message || 'Unknown error');
-            allData = result.data;
-        }
+        const response = await fetch(window.backend('all'));
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        allData = await response.json();
 
         // Populate company dropdowns (e.g., in Add Task, Add Project forms)
         const companySelects = document.querySelectorAll('select[name="company"], select[name="organization"]');
@@ -231,54 +219,38 @@ async function handleFormSubmit(event, sheetName, formId) {
     // The convertDateToBrazilian function above modifies the value directly.
 
     try {
-        // Prefer Supabase if configured
-        if (window.CONFIG && window.CONFIG.SUPABASE_URL && window.CONFIG.SUPABASE_ANON_KEY && window.initSupabase && window.initSupabase()) {
-            const tableMap = {
-                [window.CONFIG.SHEETS.TASKS]: 'tasks',
-                [window.CONFIG.SHEETS.CONTACTS]: 'contacts',
-                [window.CONFIG.SHEETS.PROJECTS]: 'projects',
-                [window.CONFIG.SHEETS.COMPANIES]: 'companies'
-            };
-            const table = tableMap[sheetName];
-            if (!table) throw new Error('Unknown table for sheet ' + sheetName);
-            await window.sbInsert(table, dataObject);
-            showToast('Success!', `${sheetName.slice(0,-1)} data added successfully. Refresh might be needed to see changes immediately.`, 'success');
-            form.reset();
-            // Close the modal if bootstrap is available
-            if (typeof bootstrap !== 'undefined' && bootstrap.Modal && formId) {
-                const modalElement = document.getElementById(formId.replace('Form', 'Modal')); // e.g. addTaskForm -> addTaskModal
-                if (modalElement) {
-                    const modalInstance = bootstrap.Modal.getInstance(modalElement);
-                    if (modalInstance) modalInstance.hide();
-                }
-            }
-            // Optionally, trigger a data refresh for the relevant part of the UI
-            // For example, if on tasks.html, refresh tasks list.
-            // Or, more simply, prompt for a page reload or do it automatically after a delay.
-             setTimeout(() => {
-                // Check if a dashboard refresh function exists (e.g., on index.html)
-                if (typeof fetchDashboardData === 'function') {
-                    fetchDashboardData(); // Refresh dashboard if on that page
-                }
-                // Add similar checks for other pages or implement a more generic refresh mechanism
-            }, 1500);
-
-        } else {
-            // Fallback to existing local API add
-            const payload = { action: 'addData', sheetName: sheetName, formData: dataObject };
-            if (!window.CONFIG || !window.CONFIG.APPS_SCRIPT_URL) {
-                throw new Error("APPS_SCRIPT_URL is not configured.");
-            }
-            const response = await fetch(window.CONFIG.APPS_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-            if (!result.success) throw new Error(result.message || `Failed to add data to ${sheetName}.`);
-            showToast('Success!', `${sheetName.slice(0,-1)} data added successfully.`, 'success');
-            form.reset();
+        // Send to backend
+        const routeMap = {
+            [window.CONFIG.SHEETS.TASKS]: 'tasks',
+            [window.CONFIG.SHEETS.CONTACTS]: 'contacts',
+            [window.CONFIG.SHEETS.PROJECTS]: 'projects',
+            [window.CONFIG.SHEETS.COMPANIES]: 'companies'
+        };
+        const route = routeMap[sheetName];
+        if (!route) throw new Error('Unknown endpoint for sheet ' + sheetName);
+        const response = await fetch(window.backend(route), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataObject)
+        });
+        if (!response.ok) {
+            const txt = await response.text();
+            throw new Error(`Backend error ${response.status}: ${txt}`);
         }
+        showToast('Success!', `${sheetName.slice(0,-1)} data added successfully. Refresh might be needed to see changes immediately.`, 'success');
+        form.reset();
+        // Close the modal if bootstrap is available
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal && formId) {
+            const modalElement = document.getElementById(formId.replace('Form', 'Modal'));
+            if (modalElement) {
+                const modalInstance = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+                if (modalInstance) modalInstance.hide();
+            }
+        }
+        // Optional refresh hooks
+        setTimeout(() => {
+            if (typeof fetchDashboardData === 'function') fetchDashboardData();
+        }, 1500);
 
     } catch (error) {
         console.error(`Error submitting ${sheetName} data:`, error);
@@ -324,16 +296,7 @@ function setupCsvImporters() {
                 skipEmptyLines: true,
                 complete: async (results) => {
                     try {
-                        if (!(window.CONFIG && window.CONFIG.SUPABASE_URL && window.CONFIG.SUPABASE_ANON_KEY && window.initSupabase && window.initSupabase())) {
-                            showToast('Error', 'Supabase not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in config.js', 'danger');
-                            return;
-                        }
-                        const rows = results.data;
-                        for (let i = 0; i < rows.length; i += 1000) { // batch insert
-                            const batch = rows.slice(i, i + 1000);
-                            await window.sbInsert(cfg.table, batch);
-                        }
-                        showToast('Success', `Imported ${results.data.length} rows into ${cfg.table}.`, 'success');
+                        showToast('Info', 'Bulk import not yet supported via backend. Please add records individually.', 'warning');
                     } catch (err) {
                         console.error('CSV import error:', err);
                         showToast('Error', `Failed to import CSV: ${err.message}`, 'danger');

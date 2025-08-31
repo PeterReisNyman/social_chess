@@ -4,43 +4,24 @@ let filteredContacts = [];
 
 async function loadContactsData() {
     try {
-        // Prefer Supabase
-        if (window.initSupabase && window.initSupabase()) {
-            const rows = await window.sbSelect('contacts');
-            allContacts = rows.map((row, index) => ({
-                id: index,
-                name: row.name || '',
-                organization: row.organization || '',
-                role: row.role || '',
-                email: row.email || '',
-                phone: row.phone || '',
-                type: row.type || '',
-                projects: row.projects || '',
-                lastContact: row.last_contact || '',
-                nextAction: row.next_action || '',
-                relationshipStrength: row.relationship_strength || '',
-                notes: row.notes || '',
-                tags: row.tags || ''
-            }));
-        } else {
-            const response = await fetch(buildApiUrl(CONFIG.SHEETS.CONTACTS));
-            const data = await response.json();
-            allContacts = data.values.slice(1).map((row, index) => ({
-                id: index,
-                name: row[0] || '',
-                organization: row[1] || '',
-                role: row[2] || '',
-                email: row[3] || '',
-                phone: row[4] || '',
-                type: row[5] || '',
-                projects: row[6] || '',
-                lastContact: row[7] || '',
-                nextAction: row[8] || '',
-                relationshipStrength: row[9] || '',
-                notes: row[10] || '',
-                tags: row[11] || ''
-            }));
-        }
+        const response = await fetch(window.backend('contacts'));
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const rows = await response.json();
+        allContacts = rows.map((row, index) => ({
+            id: index,
+            name: row.name || '',
+            organization: row.organization || '',
+            role: row.role || '',
+            email: row.email || '',
+            phone: row.phone || '',
+            type: row.type || '',
+            projects: row.projects || '',
+            lastContact: row.lastContact || '',
+            nextAction: row.nextAction || '',
+            relationshipStrength: row.relationshipStrength || '',
+            notes: row.notes || '',
+            tags: row.tags || ''
+        }));
         
         filteredContacts = [...allContacts];
         

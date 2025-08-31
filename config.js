@@ -2,6 +2,8 @@
 
 // Build-time default for local API endpoint
 const APPS_SCRIPT_URL = '/api';
+// Default backend NestJS API base (override via window.__ENV__.BACKEND_API_URL)
+const BACKEND_API_URL = (window.__ENV__ && window.__ENV__.BACKEND_API_URL) || 'http://localhost:3001/api';
 
 const CONFIG = {
     SHEETS: {
@@ -16,10 +18,8 @@ const CONFIG = {
         DASHBOARD: 'Dashboard'
     },
     APPS_SCRIPT_URL: APPS_SCRIPT_URL,
-    // These can be injected by the server from environment via window.__ENV__ in index.html (see server.js)
-    // If left empty here and __ENV__ exists, they will be set from there.
-    SUPABASE_URL: (window.__ENV__ && window.__ENV__.SUPABASE_URL) || '',
-    SUPABASE_ANON_KEY: (window.__ENV__ && window.__ENV__.SUPABASE_ANON_KEY) || ''
+    BACKEND_API_URL: BACKEND_API_URL,
+    // Backend-only Supabase. No client Supabase config needed anymore.
 };
 
 function buildApiUrl(sheetName, params = {}) {
@@ -29,5 +29,11 @@ function buildApiUrl(sheetName, params = {}) {
     return url.toString();
 }
 
+function backend(endpoint) {
+    const base = CONFIG.BACKEND_API_URL;
+    return `${base.replace(/\/$/, '')}/${endpoint.replace(/^\//, '')}`;
+}
+
 window.CONFIG = CONFIG;
 window.buildApiUrl = buildApiUrl;
+window.backend = backend;

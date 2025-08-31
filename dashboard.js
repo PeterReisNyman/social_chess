@@ -9,30 +9,31 @@ let gameStatesData = [];
 
 async function loadDashboardData() {
     try {
-        // Fetch all necessary data
-        let tasksData, dashboardData, projectsData, interactionsData, contactsData;
-        if (window.initSupabase && window.initSupabase()) {
-            const [tasksRows, projectsRows, contactsRows] = await Promise.all([
-                window.sbSelect('tasks'),
-                window.sbSelect('projects'),
-                window.sbSelect('contacts')
-            ]);
-            tasksData = { values: [['Task Name','Company','Project','Stakeholder','Due Date','Priority','Status','Type','Notes','Created Date','Last Modified'], ...tasksRows.map(r => [r.task_name,r.company,r.project,r.stakeholder,r.due_date,r.priority,r.status,r.type,r.notes,r.created_at,r.created_at])] };
-            projectsData = { values: [['Name','Company','Status','Start Date','Revenue Model','Fee Structure','Pipeline Value','Actual Revenue','Stakeholders','Next Milestone','Notes'], ...projectsRows.map(r => [r.name,r.company,r.status,r.start_date,r.revenue_model,r.fee_structure,r.pipeline_value,r.actual_revenue,r.stakeholders,r.next_milestone,r.notes])] };
-            contactsData = { values: [['Name','Organization','Role','Email','Phone','Type','Projects','Last Contact','Next Action','Relationship Strength','Notes','Tags'], ...contactsRows.map(r => [r.name,r.organization,r.role,r.email,r.phone,r.type,r.projects,r.last_contact,r.next_action,r.relationship_strength,r.notes,r.tags])] };
-            [dashboardData, interactionsData] = await Promise.all([
-                fetch(buildApiUrl(CONFIG.SHEETS.DASHBOARD)).then(r => r.json()),
-                fetch(buildApiUrl(CONFIG.SHEETS.INTERACTIONS)).then(r => r.json())
-            ]);
-        } else {
-            [tasksData, dashboardData, projectsData, interactionsData, contactsData] = await Promise.all([
-                fetch(buildApiUrl(CONFIG.SHEETS.TASKS)).then(r => r.json()),
-                fetch(buildApiUrl(CONFIG.SHEETS.DASHBOARD)).then(r => r.json()),
-                fetch(buildApiUrl(CONFIG.SHEETS.PROJECTS)).then(r => r.json()),
-                fetch(buildApiUrl(CONFIG.SHEETS.INTERACTIONS)).then(r => r.json()),
-                fetch(buildApiUrl(CONFIG.SHEETS.CONTACTS)).then(r => r.json())
-            ]);
-        }
+        // Fetch aggregated data from backend
+        const res = await fetch(window.backend('all'));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const all = await res.json();
+
+        // Build sheet-like values arrays to reuse existing rendering code
+        const tasksData = {
+            values: [
+                ['Task Name','Company','Project','Stakeholder','Due Date','Priority','Status','Type','Notes','Created Date','Last Modified'],
+                ...((all.tasks || []).map(r => [r.task_name, r.company, r.project, r.stakeholder, r.due_date, r.priority, r.status, r.type, r.notes, r.created_at, r.created_at]))
+            ]
+        };
+        const projectsData = {
+            values: [
+                ['Name','Company','Status','Start Date','Revenue Model','Fee Structure','Pipeline Value','Actual Revenue','Stakeholders','Next Milestone','Notes'],
+                ...((all.projects || []).map(r => [r.name, r.company, r.status, r.startDate || '', r.revenueModel || '', '', 0, 0, r.stakeholders || '', '', '']))
+            ]
+        };
+        const contactsData = {
+            values: [
+                ['Name','Organization','Role','Email','Phone','Type','Projects','Last Contact','Next Action','Relationship Strength','Notes','Tags'],
+                ...((all.contacts || []).map(r => [r.name, r.organization, r.role, r.email, r.phone, r.contactType, '', '', '', r.relationshipStrength, r.notes, '']))
+            ]
+        };
+        const interactionsData = { values: [['Date','Company','Project','Contact','Title','Notes']] }; // No interactions yet
 
         // Store data for Social Chess calculations
         allProjects = projectsData.values ? projectsData.values.slice(1).map((row, index) => ({
@@ -48,7 +49,17 @@ async function loadDashboardData() {
         })) : [];
 
         // Process the data
-        updateMetricsFromDashboard(dashboardData.values);
+        // Derive basic dashboard metrics from tasks and contacts
+        const notStarted = (all.tasks || []).filter(t => (t.status || '').toLowerCase() === 'not started').length;
+        const inProgress = (all.tasks || []).filter(t => (t.status || '').toLowerCase() === 'in progress').length;
+        const highPriority = (all.tasks || []).filter(t => (t.priority || '').toLowerCase() === 'high').length;
+        const networkEngaged = (all.contacts || []).length;
+        const dashboardValues = [];
+        dashboardValues[2] = [notStarted];
+        dashboardValues[3] = [inProgress];
+        dashboardValues[4] = [highPriority];
+        dashboardValues[9] = ['', networkEngaged];
+        updateMetricsFromDashboard(dashboardValues);
         displayTodaysTasks(tasksData.values);
         displayRecentInteractions(interactionsData.values);
         displayProjectHealth(projectsData.values, tasksData.values);
@@ -65,15 +76,18 @@ async function loadDashboardData() {
 // Social Chess Data Loading
 async function loadSocialChessData() {
     try {
-        const [relationships, capitalScores, gameStates] = await Promise.all([
-            fetch(buildApiUrl(CONFIG.SHEETS.RELATIONSHIPS)).then(r => r.json()),
-            fetch(buildApiUrl(CONFIG.SHEETS.CAPITAL_SCORES)).then(r => r.json()),
-            fetch(buildApiUrl(CONFIG.SHEETS.GAME_STATES)).then(r => r.json())
-        ]);
-        
-        relationshipsData = relationships.values || [];
-        capitalScoresData = capitalScores.values || [];
-        gameStatesData = gameStates.values || [];
+        const res = await fetch(window.backend('all'));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const all = await res.json();
+        relationshipsData = [
+            ['Source','Target','Strength'],
+            ...((all.relationships || []).map(r => [r.source, r.target, r.strength]))
+        ];
+        capitalScoresData = [
+            ['ContactName','Economic','Social','Political','Career'],
+            ...((all.capitalScores || []).map(r => [r.contactName, r.economic, r.social, r.political, r.career]))
+        ];
+        gameStatesData = [];
         
         // Calculate and display game metrics
         updateGameMetrics();

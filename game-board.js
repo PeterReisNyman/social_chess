@@ -32,11 +32,7 @@ function setupEventListeners() {
         });
     });
 
-    // AI Insight button (initially disabled)
-    const aiButton = document.getElementById('ai-insight-button');
-    if (aiButton) {
-        aiButton.addEventListener('click', handleAIInsightRequest);
-    }
+    // AI Insight button removed; no listener needed
 }
 
 async function initializeGameBoard() {
@@ -57,42 +53,18 @@ async function initializeGameBoard() {
     }
 
     try {
-        if (window.initSupabase && window.initSupabase()) {
-            const [projects, contacts, capitalScores, relationships, companies, investments] = await Promise.all([
-                window.sbSelect('projects'),
-                window.sbSelect('contacts'),
-                window.sbSelect('capital_scores'),
-                window.sbSelect('relationships'),
-                window.sbSelect('companies'),
-                window.sbSelect('investments')
-            ]);
-            allData.projects = projects.map(r => ({ Name: r.name, Company: r.company, Status: r.status, Stakeholders: r.stakeholders }));
-            allData.contacts = contacts.map(r => ({ Name: r.name, Role: r.role, Organization: r.organization, 'Contact Type': r.type, 'Relationship Strength': r.relationship_strength, Notes: r.notes, Email: r.email, Phone: r.phone }));
-            allData.capitalScores = capitalScores.map(r => ({ ContactName: r.contact_name, Economic: r.economic, Social: r.social, Political: r.political, Career: r.career }));
-            allData.relationships = relationships.map(r => ({ Source: r.source, Target: r.target, Strength: r.strength }));
-            allData.companies = companies.map(r => ({ Name: r.name, Type: r.type, PrimaryContact: r.primary_contact, Status: r.status }));
-            allData.investments = investments.map(r => ({ Investor: r.investor, Startup: r.startup, Stage: r.stage, Amount: r.amount, Status: r.status }));
-            displayGamesList();
-            initializeNetworkSVG();
-            if (prompt) prompt.classList.remove('hidden');
-        } else {
-            const response = await fetch(`${window.CONFIG.APPS_SCRIPT_URL}?action=getAllData`);
-            if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-            const result = await response.json();
-            if (result.success && result.data) {
-                allData.projects = result.data.projects || [];
-                allData.contacts = result.data.contacts || [];
-                allData.capitalScores = result.data.capitalScores || [];
-                allData.relationships = result.data.relationships || [];
-                allData.companies = result.data.companies || [];
-                allData.investments = result.data.investments || [];
-                displayGamesList();
-                initializeNetworkSVG();
-                if (prompt) prompt.classList.remove('hidden');
-            } else {
-                throw new Error(result.message || "Failed to fetch game board data from backend.");
-            }
-        }
+        const response = await fetch(window.backend('all'));
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        const result = await response.json();
+        allData.projects = (result.projects || []).map(r => ({ Name: r.name, Company: r.company, Status: r.status, Stakeholders: r.stakeholders }));
+        allData.contacts = (result.contacts || []).map(r => ({ Name: r.name, Role: r.role, Organization: r.organization, 'Contact Type': r.contactType, 'Relationship Strength': r.relationshipStrength, Notes: r.notes, Email: r.email, Phone: r.phone }));
+        allData.capitalScores = (result.capitalScores || []).map(r => ({ ContactName: r.contactName, Economic: r.economic, Social: r.social, Political: r.political, Career: r.career }));
+        allData.relationships = (result.relationships || []).map(r => ({ Source: r.source, Target: r.target, Strength: r.strength }));
+        allData.companies = (result.companies || []).map(r => ({ Name: r.name, Type: r.type, PrimaryContact: r.primary_contact, Status: r.status }));
+        allData.investments = (result.investments || []).map(r => ({ Investor: r.investor, Startup: r.startup, Stage: r.stage, Amount: r.amount, Status: r.status }));
+        displayGamesList();
+        initializeNetworkSVG();
+        if (prompt) prompt.classList.remove('hidden');
     } catch (error) {
         console.error('Error initializing game board:', error);
         if (prompt) {
@@ -155,7 +127,7 @@ function selectGame(projectName) {
 function clearPlayerDetails() {
     const panel = document.getElementById('player-details-panel-content');
     panel.innerHTML = `<div class="text-center text-gray-400 pt-10"><p>Select a player node from the network to view their details.</p></div>`;
-    document.getElementById('ai-insight-button').disabled = true;
+    // AI Insight button removed; nothing to disable
     selectedPlayerNode = null; // Clear selected player
     // Deselect any D3 nodes
     if (networkGroup) {
@@ -215,7 +187,7 @@ function displayPlayerDetails(playerData) { // playerData is the D3 node data
              <p class="text-xs text-gray-600 bg-gray-50 p-2 rounded-md">${contactInfo.Notes || 'No notes available.'}</p>
         </div>
     `;
-    document.getElementById('ai-insight-button').disabled = false;
+    // AI Insight button removed; nothing to enable
 }
 
 // --- D3 Network Visualization ---
@@ -568,13 +540,15 @@ async function handleAIInsightRequest() {
     }
 
     const aiButton = document.getElementById('ai-insight-button');
-    aiButton.disabled = true;
-    aiButton.innerHTML = `
+    if (aiButton) {
+      aiButton.disabled = true;
+      aiButton.innerHTML = `
         <svg class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
         Getting Insight...`;
+    }
 
     // Construct the prompt for the Gemini API
     // YOU NEED TO DEFINE THIS PROMPT based on what insights you want.
@@ -634,9 +608,11 @@ Keep the response concise and actionable.`;
         console.error("Error getting AI insight:", error);
         alert("Failed to get AI insight. " + error.message);
     } finally {
-        aiButton.disabled = false;
-        aiButton.innerHTML = `
+        if (aiButton) {
+          aiButton.disabled = false;
+          aiButton.innerHTML = `
             <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
             Get AI Insight`;
+        }
     }
 }
