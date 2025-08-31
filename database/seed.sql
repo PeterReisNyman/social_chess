@@ -64,11 +64,70 @@ insert into public.investments (investor, startup, stage, amount, status) values
   ('Rio Angels', 'Startup A', 'Pre-Seed', 50000, 'Closed'),
   ('Global Capital', 'Startup B', 'Series A', 2000000, 'Negotiating');
 
--- Interactions (optional example)
-insert into public.interactions (date, contact, type, notes) values
-  ('2025-07-25', 'Jane Smith', 'Call', 'Discussed project timeline');
+-- Interactions and Game States removed from schema; no seed entries.
 
--- Game States (optional example)
-insert into public.game_states (project, state) values
-  ('Project Alpha', 'In Progress');
+-- Backfill FK IDs from legacy name columns so that *_id columns are populated
+do $$
+begin
+  -- projects.company_id from projects.company
+  update public.projects p set company_id = c.id
+  from public.companies c
+  where p.company_id is null and p.company = c.name;
 
+  -- contacts.organization_id from contacts.organization
+  update public.contacts ct set organization_id = c.id
+  from public.companies c
+  where ct.organization_id is null and ct.organization = c.name;
+
+  -- companies.primary_contact_id from companies.primary_contact
+  update public.companies co set primary_contact_id = ct.id
+  from public.contacts ct
+  where co.primary_contact_id is null and co.primary_contact = ct.name;
+
+  -- tasks.*_id from tasks.* text
+  update public.tasks t set company_id = c.id
+  from public.companies c
+  where t.company_id is null and t.company = c.name;
+
+  update public.tasks t set project_id = p.id
+  from public.projects p
+  where t.project_id is null and t.project = p.name;
+
+  update public.tasks t set stakeholder_id = ct.id
+  from public.contacts ct
+  where t.stakeholder_id is null and t.stakeholder = ct.name;
+
+  -- capital_scores.contact_id from capital_scores.contact_name
+  update public.capital_scores cs set contact_id = ct.id
+  from public.contacts ct
+  where cs.contact_id is null and cs.contact_name = ct.name;
+
+  -- relationships source/target ids
+  update public.relationships r set source_contact_id = ct.id
+  from public.contacts ct
+  where r.source_contact_id is null and r.source = ct.name;
+
+  update public.relationships r set target_contact_id = ct.id
+  from public.contacts ct
+  where r.target_contact_id is null and r.target = ct.name;
+
+  -- investments investor/startup company ids
+  update public.investments i set investor_company_id = c.id
+  from public.companies c
+  where i.investor_company_id is null and i.investor = c.name;
+
+  update public.investments i set startup_company_id = c.id
+  from public.companies c
+  where i.startup_company_id is null and i.startup = c.name;
+
+  -- project_stakeholders from projects.stakeholders text list (semicolon separated)
+  insert into public.project_stakeholders (project_id, contact_id, role)
+  select p.id as project_id, ct.id as contact_id, null as role
+  from public.projects p
+  join lateral unnest(string_to_array(coalesce(p.stakeholders, ''), ';')) as s(name) on true
+  join public.contacts ct on trim(s.name) = ct.name
+  where not exists (
+    select 1 from public.project_stakeholders ps
+    where ps.project_id = p.id and ps.contact_id = ct.id
+  );
+end $$;

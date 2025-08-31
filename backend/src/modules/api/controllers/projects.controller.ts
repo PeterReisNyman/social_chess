@@ -19,6 +19,18 @@ type ProjectRow = {
 export class ProjectsController {
   constructor(private readonly sb: SupabaseService) {}
 
+  private async findCompanyIdByName(name?: string): Promise<string | undefined> {
+    if (!name) return undefined;
+    const { data, error } = await this.sb
+      .getClient()
+      .from('companies')
+      .select('id')
+      .eq('name', name)
+      .maybeSingle();
+    if (error) return undefined;
+    return data?.id;
+  }
+
   private mapRow(row: ProjectRow) {
     return {
       name: row.name || '',
@@ -43,7 +55,7 @@ export class ProjectsController {
 
   @Post()
   async create(@Body() payload: any) {
-    const row: ProjectRow = {
+    const row: ProjectRow & { company_id?: string } = {
       name: payload.name,
       company: payload.company,
       status: payload.status,
@@ -56,8 +68,8 @@ export class ProjectsController {
       next_milestone: payload.nextMilestone,
       notes: payload.notes,
     };
+    row.company_id = await this.findCompanyIdByName(payload.company);
     const [inserted] = await this.sb.insert<ProjectRow>('projects', row);
     return this.mapRow(inserted);
   }
 }
-

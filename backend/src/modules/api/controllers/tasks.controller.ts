@@ -18,6 +18,42 @@ type TaskRow = {
 export class TasksController {
   constructor(private readonly sb: SupabaseService) {}
 
+  private async findCompanyIdByName(name?: string): Promise<string | undefined> {
+    if (!name) return undefined;
+    const { data, error } = await this.sb
+      .getClient()
+      .from('companies')
+      .select('id')
+      .eq('name', name)
+      .maybeSingle();
+    if (error) return undefined;
+    return data?.id;
+  }
+
+  private async findProjectIdByName(name?: string): Promise<string | undefined> {
+    if (!name) return undefined;
+    const { data, error } = await this.sb
+      .getClient()
+      .from('projects')
+      .select('id')
+      .eq('name', name)
+      .maybeSingle();
+    if (error) return undefined;
+    return data?.id;
+  }
+
+  private async findContactIdByName(name?: string): Promise<string | undefined> {
+    if (!name) return undefined;
+    const { data, error } = await this.sb
+      .getClient()
+      .from('contacts')
+      .select('id')
+      .eq('name', name)
+      .maybeSingle();
+    if (error) return undefined;
+    return data?.id;
+  }
+
   private mapRow(row: TaskRow) {
     return {
       name: row.task_name || '',
@@ -42,7 +78,7 @@ export class TasksController {
   @Post()
   async create(@Body() payload: any) {
     // Expect camelCase from frontend, map to supabase columns
-    const row: TaskRow = {
+    const row: TaskRow & { company_id?: string; project_id?: string; stakeholder_id?: string } = {
       task_name: payload.taskName || payload.name,
       company: payload.company,
       project: payload.project,
@@ -53,8 +89,11 @@ export class TasksController {
       type: payload.type || 'Task',
       notes: payload.notes,
     };
+    // Best-effort foreign keys
+    row.company_id = await this.findCompanyIdByName(payload.company);
+    row.project_id = await this.findProjectIdByName(payload.project);
+    row.stakeholder_id = await this.findContactIdByName(payload.stakeholder);
     const [inserted] = await this.sb.insert<TaskRow>('tasks', row);
     return this.mapRow(inserted);
   }
 }
-

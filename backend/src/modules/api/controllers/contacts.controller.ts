@@ -20,6 +20,18 @@ type ContactRow = {
 export class ContactsController {
   constructor(private readonly sb: SupabaseService) {}
 
+  private async findCompanyIdByName(name?: string): Promise<string | undefined> {
+    if (!name) return undefined;
+    const { data, error } = await this.sb
+      .getClient()
+      .from('companies')
+      .select('id')
+      .eq('name', name)
+      .maybeSingle();
+    if (error) return undefined;
+    return data?.id;
+  }
+
   private mapRow(row: ContactRow) {
     return {
       name: row.name || '',
@@ -45,7 +57,7 @@ export class ContactsController {
 
   @Post()
   async create(@Body() payload: any) {
-    const row: ContactRow = {
+    const row: ContactRow & { organization_id?: string } = {
       name: payload.name,
       organization: payload.organization,
       role: payload.role,
@@ -59,8 +71,8 @@ export class ContactsController {
       notes: payload.notes,
       tags: payload.tags,
     };
+    row.organization_id = await this.findCompanyIdByName(payload.organization);
     const [inserted] = await this.sb.insert<ContactRow>('contacts', row);
     return this.mapRow(inserted);
   }
 }
-
