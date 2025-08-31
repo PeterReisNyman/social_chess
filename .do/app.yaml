@@ -1,0 +1,17 @@
+name: social-chess
+region: nyc
+services:
+  - name: backend
+    environment_slug: node-js
+    source_dir: backend
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    build_command: npm ci && npm run build
+    run_command: npm run start:prod
+    envs:
+      - key: NODE_ENV
+        value: production
+        scope: RUN_AND_BUILD_TIME
+    routes:
+      - path: /
+
